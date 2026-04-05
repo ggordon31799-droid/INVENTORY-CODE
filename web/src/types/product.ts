@@ -39,10 +39,12 @@ export interface LedgerEntry {
 
 export interface CostHistoryEntry {
   id: number;
-  product_id: number;
-  qty_delta: number;
-  event_type: string;
-  reference_code: string | null;
-  performed_by: string;
+  received_qty: number;
+  unit_cost: string;
   created_at: string;
+  receipt_id: number;
+  bol_number: string | null;
+  received_by: string;
+  po_number: string;
+  supplier: string;
 }

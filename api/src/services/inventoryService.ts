@@ -34,19 +34,41 @@ export async function applyDelta(params: ApplyDeltaParams): Promise<void> {
     return;
   }
 
-  // TODO: Implement
-  // 1. SELECT qty_on_hand, updated_at FROM products WHERE id = productId FOR UPDATE
-  //    using trx
-  // 2. UPDATE products SET qty_on_hand = qty_on_hand + qtyDelta, updated_at = now()
-  //    WHERE id = productId AND updated_at = <read value> (optimistic lock)
-  //    If zero rows updated, throw ConcurrencyConflictError
-  // 3. INSERT INTO inventory_ledger (
-  //      product_id, qty_delta, qty_after, event_type,
-  //      source_table, source_id, reference_code, performed_by, created_at
-  //    ) VALUES (
-  //      productId, qtyDelta, <new qty_on_hand>, eventType,
-  //      sourceTable, sourceId, referenceCode ?? null, performedBy, now()
-  //    )
-  //    using trx
-  throw new Error('Not implemented');
+  // 1. Lock the product row and read current qty
+  const product = await trx('products')
+    .where('id', productId)
+    .select('id', 'qty_on_hand', 'updated_at')
+    .forUpdate()
+    .first();
+
+  if (!product) {
+    throw new Error(`Product with id ${productId} not found`);
+  }
+
+  const newQty = product.qty_on_hand + qtyDelta;
+
+  // 2. Optimistic lock update: check updated_at hasn't changed
+  const updated = await trx('products')
+    .where('id', productId)
+    .where('updated_at', product.updated_at)
+    .update({
+      qty_on_hand: newQty,
+      updated_at: trx.fn.now(),
+    });
+
+  if (updated === 0) {
+    throw new Error('Concurrent modification detected on product — retry the operation');
+  }
+
+  // 3. Append to inventory_ledger (immutable audit trail)
+  await trx('inventory_ledger').insert({
+    product_id: productId,
+    qty_delta: qtyDelta,
+    qty_after: newQty,
+    event_type: eventType,
+    source_table: sourceTable,
+    source_id: sourceId,
+    reference_code: referenceCode ?? null,
+    performed_by: performedBy,
+  });
 }

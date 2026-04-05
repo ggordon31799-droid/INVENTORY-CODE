@@ -150,19 +150,42 @@ export async function getCostHistory(
   productId: number,
   params: { page?: number; limit?: number }
 ) {
-  // TODO: Implement when Purchase Orders module is built.
-  // Must query: receipt_line_items JOIN receipts JOIN purchase_orders
-  // WHERE receipt_line_items.product_id = productId
-  // Return: unit_cost, received qty, PO number, supplier, receipt date
-  // Source: docs/database_schema.md § 1.2, docs/prd.md § 7.3
-
   // Verify the product exists (404 if not)
   await getProduct(productId);
 
   const page = params.page ?? 1;
   const limit = params.limit ?? 50;
+  const offset = (page - 1) * limit;
 
-  return { data: [], total: 0, page, limit };
+  // Source: docs/database_schema.md § 1.2, docs/prd.md § 7.3
+  // Cost history comes from receipt_line_items joined to receipts and purchase_orders
+  const baseQuery = db('receipt_line_items')
+    .join('receipts', 'receipt_line_items.receipt_id', 'receipts.id')
+    .join('purchase_orders', 'receipts.purchase_order_id', 'purchase_orders.id')
+    .where('receipt_line_items.product_id', productId);
+
+  const countQuery = baseQuery.clone().count('* as count').first();
+  const dataQuery = baseQuery
+    .clone()
+    .select(
+      'receipt_line_items.id',
+      'receipt_line_items.received_qty',
+      'receipt_line_items.unit_cost',
+      'receipt_line_items.created_at',
+      'receipts.id as receipt_id',
+      'receipts.bol_number',
+      'receipts.received_by',
+      'purchase_orders.po_number',
+      'purchase_orders.supplier'
+    )
+    .orderBy('receipt_line_items.created_at', 'desc')
+    .limit(limit)
+    .offset(offset);
+
+  const [countResult, data] = await Promise.all([countQuery, dataQuery]);
+  const total = Number((countResult as any)?.count ?? 0);
+
+  return { data, total, page, limit };
 }
 
 export async function getLedger(

@@ -20,6 +20,8 @@ export default function CostHistory({ productId }: Props) {
   const total: number = data?.data?.total ?? entries.length;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
+  const formatCurrency = (value: string) => `$${parseFloat(value).toFixed(4)}`;
+
   return (
     <div>
       <h3 className="text-lg font-semibold text-gray-800 mb-3">Cost History</h3>
@@ -30,16 +32,17 @@ export default function CostHistory({ productId }: Props) {
       {!isLoading && !isError && (
         <>
           {entries.length === 0 ? (
-            <p className="text-sm text-gray-500">No cost history yet.</p>
+            <p className="text-sm text-gray-500">No cost history yet. Cost data appears after inventory is received against a purchase order.</p>
           ) : (
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b bg-gray-50 text-left">
                   <th className="px-3 py-2 font-medium text-gray-600">Date</th>
-                  <th className="px-3 py-2 font-medium text-gray-600">Event Type</th>
-                  <th className="px-3 py-2 font-medium text-gray-600 text-right">Qty Delta</th>
-                  <th className="px-3 py-2 font-medium text-gray-600">Reference</th>
-                  <th className="px-3 py-2 font-medium text-gray-600">Performed By</th>
+                  <th className="px-3 py-2 font-medium text-gray-600">PO Number</th>
+                  <th className="px-3 py-2 font-medium text-gray-600">Supplier</th>
+                  <th className="px-3 py-2 font-medium text-gray-600 text-right">Qty Received</th>
+                  <th className="px-3 py-2 font-medium text-gray-600 text-right">Unit Cost</th>
+                  <th className="px-3 py-2 font-medium text-gray-600">Received By</th>
                 </tr>
               </thead>
               <tbody>
@@ -48,25 +51,15 @@ export default function CostHistory({ productId }: Props) {
                     <td className="px-3 py-2 text-gray-600">
                       {new Date(entry.created_at).toLocaleDateString()}
                     </td>
-                    <td className="px-3 py-2">{entry.event_type}</td>
+                    <td className="px-3 py-2 font-mono">{entry.po_number}</td>
+                    <td className="px-3 py-2 text-gray-600">{entry.supplier}</td>
+                    <td className="px-3 py-2 text-right font-mono text-green-700">
+                      +{entry.received_qty}
+                    </td>
                     <td className="px-3 py-2 text-right font-mono">
-                      <span
-                        className={
-                          entry.qty_delta > 0
-                            ? 'text-green-700'
-                            : entry.qty_delta < 0
-                            ? 'text-red-700'
-                            : ''
-                        }
-                      >
-                        {entry.qty_delta > 0 ? '+' : ''}
-                        {entry.qty_delta}
-                      </span>
+                      {formatCurrency(entry.unit_cost)}
                     </td>
-                    <td className="px-3 py-2 text-gray-600 font-mono">
-                      {entry.reference_code ?? '—'}
-                    </td>
-                    <td className="px-3 py-2 text-gray-600">{entry.performed_by}</td>
+                    <td className="px-3 py-2 text-gray-600">{entry.received_by}</td>
                   </tr>
                 ))}
               </tbody>
