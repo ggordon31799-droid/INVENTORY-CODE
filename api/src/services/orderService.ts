@@ -8,7 +8,11 @@
  *
  * On confirmShipment():
  *   1. Create shipment + shipment_line_items
- *   2. For each line: call inventoryService.applyDelta({ eventType: ORDER_SHIPMENT })
+ *   2. For each line: call inventoryService.applyDelta({
+ *        eventType: SHIPMENT,
+ *        sourceTable: 'shipment_line_items',
+ *        referenceCode: <order number>,
+ *      })
  *   3. Update order status
  *   All within a single transaction.
  */
