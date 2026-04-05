@@ -1,20 +1,35 @@
+import { ApplyDeltaParams } from '../types';
+
 /**
- * Single entry point for ALL inventory quantity changes.
- * Every operation that changes inventory MUST go through this function.
- * It atomically updates products.qty_on_hand and inserts an inventory_ledger row.
+ * CRITICAL INVARIANT
+ * ==================
+ * products.qty_on_hand must NEVER be updated directly by any module.
+ * ALL inventory quantity changes MUST go through applyDelta().
+ *
+ * applyDelta() guarantees, within a single transaction:
+ *   1. UPDATE products.qty_on_hand by the given delta (with optimistic locking)
+ *   2. INSERT a row into inventory_ledger recording the change
+ *
+ * If either write fails, the transaction rolls back.
+ *
+ * Callers MUST pass an active Knex transaction (trx). This ensures the
+ * inventory update is atomic with the caller's own writes (e.g., creating
+ * a receipt record and updating inventory in one transaction).
  */
-export async function applyDelta(params: {
-  productId: number;
-  qtyDelta: number;
-  eventType: string;
-  sourceTable: string;
-  sourceId: number;
-  performedBy: number;
-  trx?: any; // Knex transaction
-}): Promise<void> {
-  // TODO: Implement atomic inventory update
-  // 1. UPDATE products.qty_on_hand += qtyDelta (with optimistic locking)
-  // 2. INSERT inventory_ledger row
-  // Both in single transaction; rollback on failure
+export async function applyDelta(params: ApplyDeltaParams): Promise<void> {
+  const { productId, qtyDelta, eventType, sourceTable, sourceId, performedBy, trx } = params;
+
+  if (qtyDelta === 0) {
+    return;
+  }
+
+  // TODO: Implement
+  // 1. SELECT qty_on_hand, weighted_avg_cost, updated_at FROM products WHERE id = productId FOR UPDATE
+  // 2. UPDATE products SET qty_on_hand = qty_on_hand + qtyDelta, updated_at = now()
+  //    WHERE id = productId AND updated_at = <read value> (optimistic lock)
+  //    If zero rows updated, throw ConcurrencyConflictError
+  // 3. INSERT INTO inventory_ledger (product_id, qty_delta, qty_after, event_type,
+  //    source_table, source_id, performed_by, created_at)
+  // Both steps use the provided trx.
   throw new Error('Not implemented');
 }
