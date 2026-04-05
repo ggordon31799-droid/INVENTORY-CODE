@@ -6,7 +6,10 @@
   "scripts": {
     "dev": "nodemon",
     "build": "tsc",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "migrate": "knex migrate:latest --knexfile knexfile.ts",
+    "migrate:rollback": "knex migrate:rollback --knexfile knexfile.ts",
+    "migrate:make": "knex migrate:make --knexfile knexfile.ts"
   },
   "dependencies": {
     "cors": "^2.8.5",
