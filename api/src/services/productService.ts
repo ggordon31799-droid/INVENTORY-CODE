@@ -150,26 +150,19 @@ export async function getCostHistory(
   productId: number,
   params: { page?: number; limit?: number }
 ) {
+  // TODO: Implement when Purchase Orders module is built.
+  // Must query: receipt_line_items JOIN receipts JOIN purchase_orders
+  // WHERE receipt_line_items.product_id = productId
+  // Return: unit_cost, received qty, PO number, supplier, receipt date
+  // Source: docs/database_schema.md § 1.2, docs/prd.md § 7.3
+
+  // Verify the product exists (404 if not)
+  await getProduct(productId);
+
   const page = params.page ?? 1;
   const limit = params.limit ?? 50;
-  const offset = (page - 1) * limit;
 
-  const baseQuery = db('inventory_ledger')
-    .where('product_id', productId)
-    .where('event_type', 'receipt');
-
-  const countQuery = baseQuery.clone().count('* as count').first();
-  const dataQuery = baseQuery
-    .clone()
-    .select('*')
-    .orderBy('created_at', 'desc')
-    .limit(limit)
-    .offset(offset);
-
-  const [countResult, data] = await Promise.all([countQuery, dataQuery]);
-  const total = Number((countResult as any)?.count ?? 0);
-
-  return { data, total, page, limit };
+  return { data: [], total: 0, page, limit };
 }
 
 export async function getLedger(
