@@ -105,17 +105,17 @@ export async function updateProduct(
     notes?: string | null;
   }
 ) {
-  // Strip any fields that must not be updated
-  const { ...safeData } = data;
-  (safeData as any).sku = undefined;
-  (safeData as any).qty_on_hand = undefined;
-  (safeData as any).weighted_avg_cost = undefined;
+  // Allowlist: only these fields may be updated.
+  // sku is immutable. qty_on_hand and weighted_avg_cost are owned by applyDelta/costService.
+  const ALLOWED_FIELDS = [
+    'product_name', 'barcode', 'category',
+    'reorder_threshold', 'location', 'status', 'notes',
+  ];
 
-  // Remove undefined keys
   const updatePayload: Record<string, any> = {};
-  for (const [key, value] of Object.entries(safeData)) {
-    if (value !== undefined) {
-      updatePayload[key] = value;
+  for (const key of ALLOWED_FIELDS) {
+    if ((data as any)[key] !== undefined) {
+      updatePayload[key] = (data as any)[key];
     }
   }
 
