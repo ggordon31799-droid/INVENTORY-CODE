@@ -7,10 +7,16 @@ import { ApplyDeltaParams } from '../types';
  * ALL inventory quantity changes MUST go through applyDelta().
  *
  * applyDelta() guarantees, within a single transaction:
- *   1. UPDATE products.qty_on_hand by the given delta (with optimistic locking)
- *   2. INSERT a row into inventory_ledger recording the change
+ *   1. Lock the product row (SELECT FOR UPDATE)
+ *   2. UPDATE products.qty_on_hand atomically
+ *   3. INSERT a row into inventory_ledger recording the change
  *
  * If either write fails, the transaction rolls back.
+ *
+ * Concurrency safety: SELECT FOR UPDATE acquires a row-level lock that
+ * blocks other transactions from reading or modifying the same row until
+ * this transaction commits. This is sufficient — no updated_at comparison
+ * is needed within the locked transaction.
  *
  * Callers MUST pass an active Knex transaction (trx). This ensures the
  * inventory update is atomic with the caller's own writes (e.g., creating
@@ -37,7 +43,7 @@ export async function applyDelta(params: ApplyDeltaParams): Promise<void> {
   // 1. Lock the product row and read current qty
   const product = await trx('products')
     .where('id', productId)
-    .select('id', 'qty_on_hand', 'updated_at')
+    .select('id', 'qty_on_hand')
     .forUpdate()
     .first();
 
@@ -47,18 +53,13 @@ export async function applyDelta(params: ApplyDeltaParams): Promise<void> {
 
   const newQty = product.qty_on_hand + qtyDelta;
 
-  // 2. Optimistic lock update: check updated_at hasn't changed
-  const updated = await trx('products')
+  // 2. Atomic update — FOR UPDATE lock guarantees no concurrent modification
+  await trx('products')
     .where('id', productId)
-    .where('updated_at', product.updated_at)
     .update({
       qty_on_hand: newQty,
       updated_at: trx.fn.now(),
     });
-
-  if (updated === 0) {
-    throw new Error('Concurrent modification detected on product — retry the operation');
-  }
 
   // 3. Append to inventory_ledger (immutable audit trail)
   await trx('inventory_ledger').insert({
