@@ -3,13 +3,27 @@ import OutboundForm from '../components/inventoryActions/OutboundForm';
 import OutboundList from '../components/inventoryActions/OutboundList';
 import OutboundDetail from '../components/inventoryActions/OutboundDetail';
 import DamagedReport from '../components/inventoryActions/DamagedReport';
+import AdjustmentForm from '../components/inventoryActions/AdjustmentForm';
+import AdjustmentList from '../components/inventoryActions/AdjustmentList';
+import CycleCountList from '../components/inventoryActions/CycleCountList';
+import CycleCountForm from '../components/inventoryActions/CycleCountForm';
+import CycleCountDetail from '../components/inventoryActions/CycleCountDetail';
+import TransferForm from '../components/inventoryActions/TransferForm';
+import TransferList from '../components/inventoryActions/TransferList';
 
 type View =
   | { name: 'home' }
   | { name: 'outbound-form' }
   | { name: 'outbound-list' }
   | { name: 'outbound-detail'; id: number }
-  | { name: 'damaged-report' };
+  | { name: 'damaged-report' }
+  | { name: 'adjustment-form' }
+  | { name: 'adjustment-list' }
+  | { name: 'cycle-count-list' }
+  | { name: 'cycle-count-create' }
+  | { name: 'cycle-count-detail'; id: number }
+  | { name: 'transfer-form' }
+  | { name: 'transfer-list' };
 
 export default function InventoryActions() {
   const [view, setView] = useState<View>({ name: 'home' });
@@ -74,6 +88,112 @@ export default function InventoryActions() {
     );
   }
 
+  if (view.name === 'adjustment-form') {
+    return (
+      <AdjustmentForm
+        onComplete={() => setView({ name: 'adjustment-list' })}
+        onCancel={() => setView({ name: 'adjustment-list' })}
+      />
+    );
+  }
+
+  if (view.name === 'adjustment-list') {
+    return (
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <h1 className="text-2xl font-bold">Inventory Adjustments</h1>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setView({ name: 'adjustment-form' })}
+              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm font-medium"
+            >
+              New Adjustment
+            </button>
+            <button
+              onClick={() => setView({ name: 'home' })}
+              className="px-3 py-1.5 border border-gray-300 rounded text-sm hover:bg-gray-100"
+            >
+              &larr; Back
+            </button>
+          </div>
+        </div>
+        <AdjustmentList onSelect={() => {}} />
+      </div>
+    );
+  }
+
+  if (view.name === 'cycle-count-list') {
+    return (
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <h1 className="text-2xl font-bold">Cycle Counts</h1>
+          <button
+            onClick={() => setView({ name: 'home' })}
+            className="px-3 py-1.5 border border-gray-300 rounded text-sm hover:bg-gray-100"
+          >
+            &larr; Back
+          </button>
+        </div>
+        <CycleCountList
+          onSelect={(id) => setView({ name: 'cycle-count-detail', id })}
+          onCreate={() => setView({ name: 'cycle-count-create' })}
+        />
+      </div>
+    );
+  }
+
+  if (view.name === 'cycle-count-create') {
+    return (
+      <CycleCountForm
+        onSave={(id) => setView({ name: 'cycle-count-detail', id })}
+        onCancel={() => setView({ name: 'cycle-count-list' })}
+      />
+    );
+  }
+
+  if (view.name === 'cycle-count-detail') {
+    return (
+      <CycleCountDetail
+        countId={view.id}
+        onBack={() => setView({ name: 'cycle-count-list' })}
+      />
+    );
+  }
+
+  if (view.name === 'transfer-form') {
+    return (
+      <TransferForm
+        onComplete={() => setView({ name: 'transfer-list' })}
+        onCancel={() => setView({ name: 'transfer-list' })}
+      />
+    );
+  }
+
+  if (view.name === 'transfer-list') {
+    return (
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <h1 className="text-2xl font-bold">Transfer History</h1>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setView({ name: 'transfer-form' })}
+              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm font-medium"
+            >
+              New Transfer
+            </button>
+            <button
+              onClick={() => setView({ name: 'home' })}
+              className="px-3 py-1.5 border border-gray-300 rounded text-sm hover:bg-gray-100"
+            >
+              &larr; Back
+            </button>
+          </div>
+        </div>
+        <TransferList />
+      </div>
+    );
+  }
+
   // Home view
   return (
     <div>
@@ -109,20 +229,35 @@ export default function InventoryActions() {
           </p>
         </button>
 
-        <div className="p-6 bg-gray-50 rounded border border-dashed border-gray-300 text-left opacity-60">
-          <h2 className="text-lg font-semibold text-gray-500">Cycle Counts</h2>
-          <p className="text-sm text-gray-400 mt-1">Coming soon</p>
-        </div>
+        <button
+          onClick={() => setView({ name: 'cycle-count-list' })}
+          className="p-6 bg-white rounded shadow hover:shadow-md text-left"
+        >
+          <h2 className="text-lg font-semibold text-gray-900">Cycle Counts</h2>
+          <p className="text-sm text-gray-500 mt-1">
+            Physical inventory counts with discrepancy review
+          </p>
+        </button>
 
-        <div className="p-6 bg-gray-50 rounded border border-dashed border-gray-300 text-left opacity-60">
-          <h2 className="text-lg font-semibold text-gray-500">Adjustments</h2>
-          <p className="text-sm text-gray-400 mt-1">Coming soon</p>
-        </div>
+        <button
+          onClick={() => setView({ name: 'adjustment-list' })}
+          className="p-6 bg-white rounded shadow hover:shadow-md text-left"
+        >
+          <h2 className="text-lg font-semibold text-gray-900">Adjustments</h2>
+          <p className="text-sm text-gray-500 mt-1">
+            Correct inventory quantities with audit trail
+          </p>
+        </button>
 
-        <div className="p-6 bg-gray-50 rounded border border-dashed border-gray-300 text-left opacity-60">
-          <h2 className="text-lg font-semibold text-gray-500">Transfers</h2>
-          <p className="text-sm text-gray-400 mt-1">Coming soon</p>
-        </div>
+        <button
+          onClick={() => setView({ name: 'transfer-form' })}
+          className="p-6 bg-white rounded shadow hover:shadow-md text-left"
+        >
+          <h2 className="text-lg font-semibold text-gray-900">Transfers</h2>
+          <p className="text-sm text-gray-500 mt-1">
+            Move products between locations
+          </p>
+        </button>
       </div>
     </div>
   );
