@@ -199,6 +199,20 @@ export async function getTodaysOrders() {
     .orderBy('order_date', 'asc')
     .select('*');
 
+  // Attach line items with current qty_on_hand for stock awareness
+  for (const order of orders) {
+    order.line_items = await db('order_line_items')
+      .leftJoin('products', 'order_line_items.product_id', 'products.id')
+      .where('order_line_items.order_id', order.id)
+      .select(
+        'order_line_items.*',
+        'products.sku',
+        'products.product_name',
+        'products.qty_on_hand'
+      )
+      .orderBy('order_line_items.id', 'asc');
+  }
+
   return orders;
 }
 
