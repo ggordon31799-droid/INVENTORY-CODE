@@ -203,7 +203,7 @@ export async function confirmReceipt(
   // Validate all receipt lines reference valid PO lines
   const warnings: string[] = [];
   for (const line of data.line_items) {
-    const poLine = poLineMap.get(line.po_line_item_id);
+    const poLine = poLineMap.get(Number(line.po_line_item_id));
     if (!poLine) {
       throw new Error(`PO line item ${line.po_line_item_id} not found on PO ${poId}`);
     }
@@ -234,7 +234,7 @@ export async function confirmReceipt(
     const receiptLines = [];
 
     for (const line of data.line_items) {
-      const poLine = poLineMap.get(line.po_line_item_id)!;
+      const poLine = poLineMap.get(Number(line.po_line_item_id))!;
 
       // 2a. Create receipt_line_item
       const [receiptLine] = await trx('receipt_line_items')
