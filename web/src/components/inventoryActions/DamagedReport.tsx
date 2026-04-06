@@ -40,6 +40,9 @@ export default function DamagedReport() {
   const total: number = data?.data?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const totalDamagedValue: number = data?.data?.total_damaged_value ?? 0;
+  const totalCredited: number = data?.data?.total_credited ?? 0;
+  const openBalance: number = data?.data?.open_balance ?? 0;
+  const totalUnrecoveredLoss: number = data?.data?.total_unrecovered_loss ?? 0;
 
   const statusMutation = useMutation({
     mutationFn: ({ id, payload }: { id: number; payload: Record<string, any> }) =>
@@ -80,11 +83,6 @@ export default function DamagedReport() {
     });
   };
 
-  const totalCredited = entries.reduce(
-    (sum, e) => sum + (e.credit_amount ? parseFloat(e.credit_amount) : 0),
-    0
-  );
-
   return (
     <div>
       {isLoading && <div className="text-gray-500 py-8 text-center">Loading...</div>}
@@ -93,7 +91,7 @@ export default function DamagedReport() {
       {!isLoading && !isError && (
         <>
           {/* Summary cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
             <div className="p-4 bg-red-50 border border-red-200 rounded">
               <div className="text-xs font-medium text-red-600 uppercase">Total Damaged Value</div>
               <div className="text-lg font-mono font-bold text-red-800">${totalDamagedValue.toFixed(2)}</div>
@@ -104,7 +102,13 @@ export default function DamagedReport() {
             </div>
             <div className="p-4 bg-amber-50 border border-amber-200 rounded">
               <div className="text-xs font-medium text-amber-600 uppercase">Open Balance</div>
-              <div className="text-lg font-mono font-bold text-amber-800">${(totalDamagedValue - totalCredited).toFixed(2)}</div>
+              <div className="text-lg font-mono font-bold text-amber-800">${openBalance.toFixed(2)}</div>
+              <div className="text-xs text-amber-600 mt-1">Excludes closed claims</div>
+            </div>
+            <div className="p-4 bg-gray-50 border border-gray-200 rounded">
+              <div className="text-xs font-medium text-gray-600 uppercase">Unrecovered Loss</div>
+              <div className="text-lg font-mono font-bold text-gray-800">${totalUnrecoveredLoss.toFixed(2)}</div>
+              <div className="text-xs text-gray-500 mt-1">Closed claims shortfall</div>
             </div>
           </div>
 
@@ -122,7 +126,8 @@ export default function DamagedReport() {
                     <th className="px-3 py-3 font-medium text-gray-600 text-right">Damage Value</th>
                     <th className="px-3 py-3 font-medium text-gray-600">Claim</th>
                     <th className="px-3 py-3 font-medium text-gray-600 text-right">Credit</th>
-                    <th className="px-3 py-3 font-medium text-gray-600 text-right">Open</th>
+                    <th className="px-3 py-3 font-medium text-gray-600 text-right">Open Bal</th>
+                    <th className="px-3 py-3 font-medium text-gray-600 text-right">Loss</th>
                     <th className="px-3 py-3 font-medium text-gray-600">Mfg Ref</th>
                     <th className="px-3 py-3 font-medium text-gray-600">Actions</th>
                   </tr>
@@ -131,11 +136,13 @@ export default function DamagedReport() {
                   {entries.map((entry) => {
                     const damageVal = parseFloat(entry.total_cost);
                     const creditVal = entry.credit_amount ? parseFloat(entry.credit_amount) : 0;
-                    const openBal = damageVal - creditVal;
+                    const isClosed = entry.claim_status === 'closed';
+                    const openBal = isClosed ? 0 : Math.max(0, damageVal - creditVal);
+                    const unrecoLoss = isClosed ? Math.max(0, damageVal - creditVal) : 0;
                     const isEditing = editingId === entry.outbound_id;
 
                     return (
-                      <tr key={entry.id} className="border-b">
+                      <tr key={entry.id} className={`border-b ${isClosed ? 'bg-gray-50' : ''}`}>
                         <td className="px-3 py-3 text-gray-600">{new Date(entry.created_at).toLocaleDateString()}</td>
                         <td className="px-3 py-3 font-mono">{entry.sku}</td>
                         <td className="px-3 py-3">{entry.product_name}</td>
@@ -149,6 +156,12 @@ export default function DamagedReport() {
                           <span className={openBal > 0 ? 'text-amber-700' : 'text-gray-400'}>
                             ${openBal.toFixed(2)}
                           </span>
+                        </td>
+                        <td className="px-3 py-3 text-right font-mono">
+                          {unrecoLoss > 0
+                            ? <span className="text-red-600">${unrecoLoss.toFixed(2)}</span>
+                            : <span className="text-gray-400">—</span>
+                          }
                         </td>
                         <td className="px-3 py-3 text-gray-600 font-mono text-xs">
                           {entry.manufacturer_reference ?? '—'}

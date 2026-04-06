@@ -305,13 +305,47 @@ export async function getDamagedReport(params: {
     .select(db.raw('SUM(manual_outbound_line_items.qty * manual_outbound_line_items.unit_cost_snapshot) as total_damaged_value'))
     .first();
 
-  const [countResult, data, totalValue] = await Promise.all([
+  // Total credited (across all claims, open or closed)
+  const totalCreditedQuery = db('manual_outbound')
+    .where('outbound_type', 'damaged')
+    .whereNotNull('credit_amount')
+    .select(db.raw('SUM(credit_amount) as total_credited'))
+    .first();
+
+  // Open balance: only from non-closed claims
+  // open_balance = SUM(damage_value) - SUM(credit_amount) for non-closed claims
+  const openBalanceQuery = db('manual_outbound_line_items')
+    .join('manual_outbound', 'manual_outbound_line_items.manual_outbound_id', 'manual_outbound.id')
+    .where('manual_outbound.outbound_type', 'damaged')
+    .where('manual_outbound.claim_status', '!=', 'closed')
+    .select(
+      db.raw('SUM(manual_outbound_line_items.qty * manual_outbound_line_items.unit_cost_snapshot) as open_damage_value'),
+      db.raw('SUM(COALESCE(manual_outbound.credit_amount, 0)) as open_credit_amount')
+    )
+    .first();
+
+  // Unrecovered loss: only from closed claims where credit < damage
+  const unrecoveredQuery = db('manual_outbound_line_items')
+    .join('manual_outbound', 'manual_outbound_line_items.manual_outbound_id', 'manual_outbound.id')
+    .where('manual_outbound.outbound_type', 'damaged')
+    .where('manual_outbound.claim_status', 'closed')
+    .select(
+      db.raw('SUM(manual_outbound_line_items.qty * manual_outbound_line_items.unit_cost_snapshot - COALESCE(manual_outbound.credit_amount, 0)) as total_unrecovered_loss')
+    )
+    .first();
+
+  const [countResult, data, totalValue, totalCredited, openBalance, unrecovered] = await Promise.all([
     countQuery,
     dataQuery,
     totalValueQuery,
+    totalCreditedQuery,
+    openBalanceQuery,
+    unrecoveredQuery,
   ]);
 
   const total = Number((countResult as any)?.count ?? 0);
+  const openDamageVal = parseFloat((openBalance as any)?.open_damage_value ?? '0');
+  const openCreditVal = parseFloat((openBalance as any)?.open_credit_amount ?? '0');
 
   return {
     data,
@@ -319,5 +353,8 @@ export async function getDamagedReport(params: {
     page,
     limit,
     total_damaged_value: parseFloat((totalValue as any)?.total_damaged_value ?? '0'),
+    total_credited: parseFloat((totalCredited as any)?.total_credited ?? '0'),
+    open_balance: Math.max(0, openDamageVal - openCreditVal),
+    total_unrecovered_loss: parseFloat((unrecovered as any)?.total_unrecovered_loss ?? '0'),
   };
 }
