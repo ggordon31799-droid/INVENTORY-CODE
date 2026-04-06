@@ -153,7 +153,84 @@ export async function getOutbound(id: number) {
   return { ...outbound, line_items: lineItems };
 }
 
-export async function getDamagedReport(params: {
+// --- Damaged claim management ---
+
+const VALID_CLAIM_STATUSES = ['open', 'submitted', 'credited', 'closed'];
+
+export async function updateClaimStatus(
+  id: number,
+  data: {
+    claim_status: string;
+    claim_notes?: string | null;
+    manufacturer_reference?: string | null;
+  }
+) {
+  const outbound = await db('manual_outbound').where('id', id).first();
+  if (!outbound) {
+    throw new NotFoundError(`Manual outbound with id ${id} not found`);
+  }
+  if (outbound.outbound_type !== 'damaged') {
+    throw new Error('Claim status can only be set on damaged outbound records');
+  }
+  if (!VALID_CLAIM_STATUSES.includes(data.claim_status)) {
+    throw new Error(`Invalid claim status. Valid: ${VALID_CLAIM_STATUSES.join(', ')}`);
+  }
+
+  const updatePayload: Record<string, any> = {
+    claim_status: data.claim_status,
+  };
+  if (data.claim_notes !== undefined) {
+    updatePayload.claim_notes = data.claim_notes;
+  }
+  if (data.manufacturer_reference !== undefined) {
+    updatePayload.manufacturer_reference = data.manufacturer_reference;
+  }
+
+  await db('manual_outbound').where('id', id).update(updatePayload);
+
+  return getOutbound(id);
+}
+
+export async function applyCredit(
+  id: number,
+  data: {
+    credit_amount: number;
+    credited_by: string;
+    manufacturer_reference?: string | null;
+    claim_notes?: string | null;
+  }
+) {
+  const outbound = await db('manual_outbound').where('id', id).first();
+  if (!outbound) {
+    throw new NotFoundError(`Manual outbound with id ${id} not found`);
+  }
+  if (outbound.outbound_type !== 'damaged') {
+    throw new Error('Credits can only be applied to damaged outbound records');
+  }
+  if (data.credit_amount <= 0) {
+    throw new Error('Credit amount must be positive');
+  }
+  if (!data.credited_by) {
+    throw new Error('credited_by is required');
+  }
+
+  const updatePayload: Record<string, any> = {
+    credit_amount: data.credit_amount,
+    credited_at: db.fn.now(),
+    credited_by: data.credited_by,
+    claim_status: 'credited',
+  };
+  if (data.manufacturer_reference !== undefined) {
+    updatePayload.manufacturer_reference = data.manufacturer_reference;
+  }
+  if (data.claim_notes !== undefined) {
+    updatePayload.claim_notes = data.claim_notes;
+  }
+
+  await db('manual_outbound').where('id', id).update(updatePayload);
+
+  return getOutbound(id);
+}
   page?: number;
   limit?: number;
 }) {
@@ -178,6 +255,12 @@ export async function getDamagedReport(params: {
       'manual_outbound.id as outbound_id',
       'manual_outbound.reference_number',
       'manual_outbound.created_by',
+      'manual_outbound.claim_status',
+      'manual_outbound.credit_amount',
+      'manual_outbound.credited_at',
+      'manual_outbound.credited_by',
+      'manual_outbound.manufacturer_reference',
+      'manual_outbound.claim_notes',
       'products.sku',
       'products.product_name',
       db.raw('(manual_outbound_line_items.qty * manual_outbound_line_items.unit_cost_snapshot) as total_cost')

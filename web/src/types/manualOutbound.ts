@@ -5,6 +5,12 @@ export interface ManualOutbound {
   reference_number: string | null;
   created_by: string;
   created_at: string;
+  claim_status: string;
+  credit_amount: string | null;
+  credited_at: string | null;
+  credited_by: string | null;
+  manufacturer_reference: string | null;
+  claim_notes: string | null;
   line_items?: ManualOutboundLineItem[];
 }
 
@@ -28,6 +34,12 @@ export interface DamagedReportEntry {
   outbound_id: number;
   reference_number: string | null;
   created_by: string;
+  claim_status: string;
+  credit_amount: string | null;
+  credited_at: string | null;
+  credited_by: string | null;
+  manufacturer_reference: string | null;
+  claim_notes: string | null;
   sku: string;
   product_name: string;
 }

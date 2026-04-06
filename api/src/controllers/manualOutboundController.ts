@@ -33,6 +33,24 @@ export async function getOutbound(req: Request, res: Response, next: NextFunctio
   }
 }
 
+export async function updateClaimStatus(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await outboundService.updateClaimStatus(Number(req.params.id), req.body);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function applyCredit(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await outboundService.applyCredit(Number(req.params.id), req.body);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function getDamagedReport(req: Request, res: Response, next: NextFunction) {
   try {
     const { page, limit } = req.query;
