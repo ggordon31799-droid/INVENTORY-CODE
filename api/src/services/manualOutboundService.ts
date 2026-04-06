@@ -258,6 +258,8 @@ export async function applyCredit(
 
   return getOutbound(id);
 }
+
+export async function getDamagedReport(params: {
   page?: number;
   limit?: number;
 }) {
