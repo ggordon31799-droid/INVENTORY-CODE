@@ -152,12 +152,12 @@ export async function updatePurchaseOrder(
 
   updatePayload.updated_at = db.fn.now();
 
-  const [po] = await db('purchase_orders')
+  const [updatedPo] = await db('purchase_orders')
     .where('id', id)
     .update(updatePayload)
     .returning('*');
 
-  if (!po) {
+  if (!updatedPo) {
     throw new NotFoundError(`Purchase order with id ${id} not found`);
   }
 
