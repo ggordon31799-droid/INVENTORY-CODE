@@ -169,9 +169,9 @@ export default function PODetail({ poId, onBack }: Props) {
   }
 
   const lineItems = po.line_items ?? [];
-  const isTerminal = po.status === 'closed' || po.status === 'voided';
-  const canReceive = !isTerminal && po.status !== 'fully_received';
-  const canClose = !isTerminal;
+  const isTerminal = po.status === 'closed' || po.status === 'voided' || po.status === 'fully_received';
+  const canReceive = !isTerminal;
+  const canClose = po.status !== 'closed' && po.status !== 'voided';
   const canEdit = !isTerminal;
   const canVoid = po.status === 'open' && lineItems.every((l) => l.received_qty === 0);
 

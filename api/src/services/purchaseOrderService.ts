@@ -133,6 +133,9 @@ export async function updatePurchaseOrder(
   if (po.status === 'voided') {
     throw new Error('Cannot edit a voided purchase order');
   }
+  if (po.status === 'fully_received') {
+    throw new Error('Cannot edit a fully received purchase order');
+  }
 
   const ALLOWED_FIELDS = ['supplier', 'expected_date', 'notes'];
 
