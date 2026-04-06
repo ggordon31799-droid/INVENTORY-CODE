@@ -67,10 +67,13 @@ export default function Dashboard() {
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
         <div className="bg-white rounded shadow p-4">
-          <div className="text-xs font-medium text-gray-500 uppercase">Active SKUs</div>
+          <div className="text-xs font-medium text-gray-500 uppercase">SKUs in Stock</div>
           <div className="text-2xl font-bold text-gray-900 mt-1">
-            {summary?.total_skus ?? '—'}
+            {summary?.total_skus_in_stock ?? '—'}
           </div>
+          {summary && (
+            <div className="text-xs text-gray-400 mt-1">{summary.total_active_skus} active total</div>
+          )}
         </div>
         <div className="bg-white rounded shadow p-4">
           <div className="text-xs font-medium text-gray-500 uppercase">Total Units</div>

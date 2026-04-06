@@ -15,7 +15,8 @@ export async function getSummary() {
     db('products')
       .where('status', 'active')
       .select(
-        db.raw('COUNT(*) FILTER (WHERE qty_on_hand > 0) as total_skus'),
+        db.raw('COUNT(*) as total_active_skus'),
+        db.raw('COUNT(*) FILTER (WHERE qty_on_hand > 0) as total_skus_in_stock'),
         db.raw('COALESCE(SUM(qty_on_hand), 0) as total_units'),
         db.raw('COALESCE(SUM(qty_on_hand * weighted_avg_cost), 0) as total_inventory_value')
       )
@@ -37,7 +38,8 @@ export async function getSummary() {
   ]);
 
   return {
-    total_skus: Number(skuStats?.total_skus ?? 0),
+    total_active_skus: Number(skuStats?.total_active_skus ?? 0),
+    total_skus_in_stock: Number(skuStats?.total_skus_in_stock ?? 0),
     total_units: Number(skuStats?.total_units ?? 0),
     total_inventory_value: parseFloat(skuStats?.total_inventory_value ?? '0'),
     units_received_today: Number(receivedToday?.units_received_today ?? 0),
