@@ -190,7 +190,7 @@ export async function getDamagedReport(params: {
   const totalValueQuery = db('manual_outbound_line_items')
     .join('manual_outbound', 'manual_outbound_line_items.manual_outbound_id', 'manual_outbound.id')
     .where('manual_outbound.outbound_type', 'damaged')
-    .sum(db.raw('manual_outbound_line_items.qty * manual_outbound_line_items.unit_cost_snapshot as total_damaged_value'))
+    .select(db.raw('SUM(manual_outbound_line_items.qty * manual_outbound_line_items.unit_cost_snapshot) as total_damaged_value'))
     .first();
 
   const [countResult, data, totalValue] = await Promise.all([
