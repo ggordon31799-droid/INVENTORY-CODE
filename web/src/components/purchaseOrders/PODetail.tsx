@@ -16,6 +16,7 @@ function statusBadge(status: string) {
     partially_received: { bg: 'bg-amber-100 text-amber-800', label: 'Partially Received' },
     fully_received: { bg: 'bg-green-100 text-green-800', label: 'Fully Received' },
     closed: { bg: 'bg-gray-100 text-gray-600', label: 'Closed' },
+    voided: { bg: 'bg-red-100 text-red-800', label: 'Voided' },
   };
   const entry = map[status] ?? { bg: 'bg-gray-100 text-gray-600', label: status };
   return (
@@ -58,6 +59,18 @@ export default function PODetail({ poId, onBack }: Props) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['purchaseOrder', poId] });
       queryClient.invalidateQueries({ queryKey: ['purchaseOrders'] });
+    },
+  });
+
+  const voidMutation = useMutation({
+    mutationFn: () => purchaseOrderApi.void(poId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['purchaseOrder', poId] });
+      queryClient.invalidateQueries({ queryKey: ['purchaseOrders'] });
+    },
+    onError: (err: any) => {
+      const msg = err?.response?.data?.error ?? err?.message;
+      alert(msg);
     },
   });
 
@@ -156,9 +169,11 @@ export default function PODetail({ poId, onBack }: Props) {
   }
 
   const lineItems = po.line_items ?? [];
-  const canReceive = po.status !== 'closed' && po.status !== 'fully_received';
-  const canClose = po.status !== 'closed';
-  const canEdit = po.status !== 'closed';
+  const isTerminal = po.status === 'closed' || po.status === 'voided';
+  const canReceive = !isTerminal && po.status !== 'fully_received';
+  const canClose = !isTerminal;
+  const canEdit = !isTerminal;
+  const canVoid = po.status === 'open' && lineItems.every((l) => l.received_qty === 0);
 
   return (
     <div>
@@ -202,9 +217,24 @@ export default function PODetail({ poId, onBack }: Props) {
                 }
               }}
               disabled={closeMutation.isPending}
-              className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 text-sm font-medium disabled:opacity-50"
+              className="px-4 py-2 border border-gray-400 text-gray-700 rounded hover:bg-gray-100 text-sm font-medium disabled:opacity-50"
             >
               {closeMutation.isPending ? 'Closing...' : 'Close PO'}
+            </button>
+          )}
+          {canVoid && (
+            <button
+              onClick={() => {
+                if (window.confirm(
+                  'Void this PO? This cannot be undone. The PO will remain as a historical record.'
+                )) {
+                  voidMutation.mutate();
+                }
+              }}
+              disabled={voidMutation.isPending}
+              className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 text-sm font-medium disabled:opacity-50"
+            >
+              {voidMutation.isPending ? 'Voiding...' : 'Void PO'}
             </button>
           )}
         </div>

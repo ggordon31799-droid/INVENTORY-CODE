@@ -52,6 +52,15 @@ export async function closePurchaseOrder(req: Request, res: Response, next: Next
   }
 }
 
+export async function voidPurchaseOrder(req: Request, res: Response, next: NextFunction) {
+  try {
+    const po = await poService.voidPurchaseOrder(Number(req.params.id));
+    res.json(po);
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function confirmReceipt(req: Request, res: Response, next: NextFunction) {
   try {
     const result = await poService.confirmReceipt(Number(req.params.id), req.body);

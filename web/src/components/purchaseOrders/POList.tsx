@@ -14,6 +14,7 @@ const STATUS_OPTIONS = [
   { value: 'partially_received', label: 'Partially Received' },
   { value: 'fully_received', label: 'Fully Received' },
   { value: 'closed', label: 'Closed' },
+  { value: 'voided', label: 'Voided' },
 ];
 
 function statusBadge(status: string) {
@@ -22,6 +23,7 @@ function statusBadge(status: string) {
     partially_received: { bg: 'bg-amber-100 text-amber-800', label: 'Partially Received' },
     fully_received: { bg: 'bg-green-100 text-green-800', label: 'Fully Received' },
     closed: { bg: 'bg-gray-100 text-gray-600', label: 'Closed' },
+    voided: { bg: 'bg-red-100 text-red-800', label: 'Voided' },
   };
   const entry = map[status] ?? { bg: 'bg-gray-100 text-gray-600', label: status };
   return (

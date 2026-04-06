@@ -123,6 +123,17 @@ export async function updatePurchaseOrder(
     notes?: string | null;
   }
 ) {
+  const po = await db('purchase_orders').where('id', id).first();
+  if (!po) {
+    throw new NotFoundError(`Purchase order with id ${id} not found`);
+  }
+  if (po.status === 'closed') {
+    throw new Error('Cannot edit a closed purchase order');
+  }
+  if (po.status === 'voided') {
+    throw new Error('Cannot edit a voided purchase order');
+  }
+
   const ALLOWED_FIELDS = ['supplier', 'expected_date', 'notes'];
 
   const updatePayload: Record<string, any> = {};
@@ -158,11 +169,58 @@ export async function closePurchaseOrder(id: number) {
   if (po.status === 'closed') {
     throw new Error('Purchase order is already closed');
   }
+  if (po.status === 'voided') {
+    throw new Error('Cannot close a voided purchase order');
+  }
 
-  const [updated] = await db('purchase_orders')
+  await db('purchase_orders')
     .where('id', id)
-    .update({ status: 'closed', updated_at: db.fn.now() })
-    .returning('*');
+    .update({ status: 'closed', updated_at: db.fn.now() });
+
+  return getPurchaseOrder(id);
+}
+
+export async function voidPurchaseOrder(id: number) {
+  const po = await db('purchase_orders').where('id', id).first();
+  if (!po) {
+    throw new NotFoundError(`Purchase order with id ${id} not found`);
+  }
+  if (po.status === 'voided') {
+    throw new Error('Purchase order is already voided');
+  }
+  if (po.status === 'closed') {
+    throw new Error('Cannot void a closed purchase order');
+  }
+
+  // Block voiding if any receipts exist
+  const receiptCount = await db('receipts')
+    .where('purchase_order_id', id)
+    .count('* as count')
+    .first();
+
+  if (Number(receiptCount?.count) > 0) {
+    throw new Error(
+      'Cannot void a purchase order with existing receipts. ' +
+      'Use inventory adjustments to correct received quantities.'
+    );
+  }
+
+  // Block voiding if any line has received_qty > 0
+  const receivedLine = await db('po_line_items')
+    .where('purchase_order_id', id)
+    .where('received_qty', '>', 0)
+    .first();
+
+  if (receivedLine) {
+    throw new Error(
+      'Cannot void a purchase order with received inventory. ' +
+      'Use inventory adjustments to correct received quantities.'
+    );
+  }
+
+  await db('purchase_orders')
+    .where('id', id)
+    .update({ status: 'voided', updated_at: db.fn.now() });
 
   return getPurchaseOrder(id);
 }
@@ -191,6 +249,9 @@ export async function confirmReceipt(
   }
   if (po.status === 'closed') {
     throw new Error('Cannot receive against a closed purchase order');
+  }
+  if (po.status === 'voided') {
+    throw new Error('Cannot receive against a voided purchase order');
   }
 
   // Load PO line items
