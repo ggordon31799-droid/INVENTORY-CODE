@@ -23,10 +23,12 @@ export default function DamagedReport() {
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [editMode, setEditMode] = useState<'credit' | 'close'>('credit');
   const [creditAmount, setCreditAmount] = useState('');
   const [creditBy, setCreditBy] = useState('admin');
   const [mfgRef, setMfgRef] = useState('');
   const [claimNotes, setClaimNotes] = useState('');
+  const [closeError, setCloseError] = useState('');
   const pageSize = 20;
 
   const { data, isLoading, isError } = useQuery({
@@ -152,7 +154,9 @@ export default function DamagedReport() {
                           {entry.manufacturer_reference ?? '—'}
                         </td>
                         <td className="px-3 py-3">
+                          {/* Actions: only show buttons for valid transitions */}
                           <div className="flex gap-1 flex-wrap">
+                            {/* open → submitted */}
                             {entry.claim_status === 'open' && (
                               <button
                                 onClick={() => statusMutation.mutate({
@@ -162,33 +166,46 @@ export default function DamagedReport() {
                                 disabled={statusMutation.isPending}
                                 className="px-2 py-1 text-xs bg-amber-100 text-amber-800 rounded hover:bg-amber-200"
                               >
-                                Submit
+                                Submit Claim
                               </button>
                             )}
-                            {(entry.claim_status === 'open' || entry.claim_status === 'submitted') && (
+                            {/* submitted → credited */}
+                            {entry.claim_status === 'submitted' && (
                               <button
-                                onClick={() => openCreditForm(entry)}
+                                onClick={() => { openCreditForm(entry); setEditMode('credit'); }}
                                 className="px-2 py-1 text-xs bg-green-100 text-green-800 rounded hover:bg-green-200"
                               >
-                                Credit
+                                Apply Credit
                               </button>
                             )}
-                            {entry.claim_status !== 'closed' && entry.claim_status !== 'open' && (
+                            {/* submitted → closed OR credited → closed */}
+                            {(entry.claim_status === 'submitted' || entry.claim_status === 'credited') && (
                               <button
-                                onClick={() => statusMutation.mutate({
-                                  id: entry.outbound_id,
-                                  payload: { claim_status: 'closed' },
-                                })}
+                                onClick={() => {
+                                  if (entry.credit_amount) {
+                                    // Has credit — close directly
+                                    statusMutation.mutate({
+                                      id: entry.outbound_id,
+                                      payload: { claim_status: 'closed' },
+                                    });
+                                  } else {
+                                    // No credit — need notes, open close form
+                                    setEditingId(entry.outbound_id);
+                                    setEditMode('close');
+                                    setClaimNotes(entry.claim_notes ?? '');
+                                    setCloseError('');
+                                  }
+                                }}
                                 disabled={statusMutation.isPending}
                                 className="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded hover:bg-gray-200"
                               >
-                                Close
+                                Close Claim
                               </button>
                             )}
                           </div>
 
-                          {/* Inline credit form */}
-                          {isEditing && (
+                          {/* Inline credit form (submitted → credited) */}
+                          {isEditing && editMode === 'credit' && (
                             <div className="mt-2 p-2 border rounded bg-gray-50 space-y-2">
                               <div>
                                 <label className="block text-xs text-gray-500">Credit Amount</label>
@@ -235,6 +252,52 @@ export default function DamagedReport() {
                                   className="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
                                 >
                                   {creditMutation.isPending ? 'Saving...' : 'Apply Credit'}
+                                </button>
+                                <button
+                                  onClick={() => setEditingId(null)}
+                                  className="px-2 py-1 text-xs border rounded hover:bg-gray-100"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Inline close form (submitted → closed without credit, requires notes) */}
+                          {isEditing && editMode === 'close' && (
+                            <div className="mt-2 p-2 border rounded bg-gray-50 space-y-2">
+                              {closeError && (
+                                <div className="text-xs text-red-600">{closeError}</div>
+                              )}
+                              <div>
+                                <label className="block text-xs text-gray-500">
+                                  Reason for closing without credit <span className="text-red-500">*</span>
+                                </label>
+                                <input
+                                  type="text"
+                                  value={claimNotes}
+                                  onChange={(e) => { setClaimNotes(e.target.value); setCloseError(''); }}
+                                  placeholder="Required — explain why claim is closed without credit"
+                                  className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+                                />
+                              </div>
+                              <div className="flex gap-1">
+                                <button
+                                  onClick={() => {
+                                    if (!claimNotes.trim()) {
+                                      setCloseError('Notes are required when closing without credit');
+                                      return;
+                                    }
+                                    statusMutation.mutate({
+                                      id: entry.outbound_id,
+                                      payload: { claim_status: 'closed', claim_notes: claimNotes.trim() },
+                                    });
+                                    setEditingId(null);
+                                  }}
+                                  disabled={statusMutation.isPending}
+                                  className="px-2 py-1 text-xs bg-gray-600 text-white rounded hover:bg-gray-700 disabled:opacity-50"
+                                >
+                                  Close Claim
                                 </button>
                                 <button
                                   onClick={() => setEditingId(null)}

@@ -155,7 +155,23 @@ export async function getOutbound(id: number) {
 
 // --- Damaged claim management ---
 
-const VALID_CLAIM_STATUSES = ['open', 'submitted', 'credited', 'closed'];
+// Allowed transitions: open→submitted, submitted→credited, submitted→closed, credited→closed
+const ALLOWED_TRANSITIONS: Record<string, string[]> = {
+  open: ['submitted'],
+  submitted: ['credited', 'closed'],
+  credited: ['closed'],
+  closed: [],
+};
+
+function validateTransition(current: string, next: string): void {
+  const allowed = ALLOWED_TRANSITIONS[current];
+  if (!allowed || !allowed.includes(next)) {
+    throw new Error(
+      `Cannot transition claim from '${current}' to '${next}'. ` +
+      `Allowed from '${current}': ${(allowed ?? []).join(', ') || 'none (terminal state)'}`
+    );
+  }
+}
 
 export async function updateClaimStatus(
   id: number,
@@ -172,8 +188,15 @@ export async function updateClaimStatus(
   if (outbound.outbound_type !== 'damaged') {
     throw new Error('Claim status can only be set on damaged outbound records');
   }
-  if (!VALID_CLAIM_STATUSES.includes(data.claim_status)) {
-    throw new Error(`Invalid claim status. Valid: ${VALID_CLAIM_STATUSES.join(', ')}`);
+
+  validateTransition(outbound.claim_status, data.claim_status);
+
+  // Closing without credit requires notes explaining why
+  if (data.claim_status === 'closed' && !outbound.credit_amount) {
+    const notes = data.claim_notes?.trim();
+    if (!notes) {
+      throw new Error('claim_notes is required when closing a claim without credit');
+    }
   }
 
   const updatePayload: Record<string, any> = {
@@ -207,6 +230,10 @@ export async function applyCredit(
   if (outbound.outbound_type !== 'damaged') {
     throw new Error('Credits can only be applied to damaged outbound records');
   }
+
+  // Credit is only valid from submitted state
+  validateTransition(outbound.claim_status, 'credited');
+
   if (data.credit_amount <= 0) {
     throw new Error('Credit amount must be positive');
   }
